@@ -14,11 +14,11 @@ public class S3HostedServiceOptions
     {
         var settings = new S3ServerSettings();
         if (Logging != null)
-            settings.Logging = Logging.GetLoggingSettings();
+            settings.Logging = Logging.ToLoggingSettings();
         if (Limits != null)
-            settings.OperationLimits = Limits.GetOperationLimitsSettings();
+            settings.OperationLimits = Limits.ToOperationLimitsSettings();
         if (Server != null)
-            settings.Webserver = Server.GetWebserverSettings();
+            settings.Webserver = Server.ToWebserverSettings();
         if (EnableSignatures != null)
             settings.EnableSignatures = EnableSignatures.Value;
 
@@ -33,7 +33,7 @@ public class S3HostedServiceLoggingOptions
     public bool? EnableV4ValidationLogging { get; set; }
     public bool? EnableExceptionLogging { get; set; }
 
-    public LoggingSettings GetLoggingSettings()
+    public LoggingSettings ToLoggingSettings()
     {
         var settings = new LoggingSettings();
         if (EnableHttpRequestLogging != null)
@@ -53,7 +53,7 @@ public class S3HostedServiceLimitsOptions
 {
     public long? MaxPutObjectSize { get; set; }
 
-    public OperationLimitsSettings GetOperationLimitsSettings()
+    public OperationLimitsSettings ToOperationLimitsSettings()
     {
         var settings = new OperationLimitsSettings();
         
@@ -69,7 +69,7 @@ public class S3HostedServiceWebServerSettings
     public string? Hostname { get; set; }
     public int? Port { get; set; }
 
-    public WebserverSettings GetWebserverSettings()
+    public WebserverSettings ToWebserverSettings()
     {
         var settings = new WebserverSettings();
         if (Hostname != null)
