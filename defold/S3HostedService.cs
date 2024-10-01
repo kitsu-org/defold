@@ -8,13 +8,16 @@ public class S3HostedService : IHostedService
     private IOptionsMonitor<S3HostedServiceOptions> Options { get; set; }
     private ILogger<S3HostedService> Logger { get; }
     private S3Server S3Server { get; set; }
+    private DefoldS3Server Defold { get; set; }
 
     public S3HostedService(
         IOptionsMonitor<S3HostedServiceOptions> options, 
-        ILogger<S3HostedService> logger)
+        ILogger<S3HostedService> logger,
+        DefoldS3Server defold)
     {
         Options = options;
         Logger = logger;
+        Defold = defold;
         // options.OnChange(OnOptionsChanged);
     }
 
@@ -28,7 +31,7 @@ public class S3HostedService : IHostedService
 
     private void SetupServerCallbacks(S3Server server)
     {
-        
+        Defold.SetupCallbacks(server);
     }
     
     private S3Server BuildS3Server(S3HostedServiceOptions options)
@@ -41,9 +44,9 @@ public class S3HostedService : IHostedService
     
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        var settings = Options.CurrentValue.ToS3ServerSettings();
-        S3Server = new S3Server(settings);
-        S3Server.Webserver.Start(cancellationToken);
+        var server = BuildS3Server(Options.CurrentValue);
+        SetupServerCallbacks(server);
+        server.Webserver.Start(cancellationToken);
         return Task.CompletedTask;
     }
 
