@@ -3,14 +3,19 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Defold.Services;
 
-public class PostgresMetadataStore(IServiceProvider serviceProvider) : IMetadataStore
+public class PostgresMetadataStore(
+    IServiceProvider serviceProvider, 
+    ILogger<PostgresMetadataStore> logger) : IMetadataStore
 {
+    private ILogger Logger { get; set; } = logger;
+
     // this is a workaround for the fact that we can't pull in the scoped DbContext
     // from this singleton service, but we're stuck with a singleton due to how 
     // the S3Server library is implemented. this is just a temporary workaround
     // for now.
     private IServiceProvider ServiceProvider { get; } = serviceProvider;
     
+    /// <inheritdoc />
     public async Task AddFile(UploadedFile file)
     {
         using var scope = ServiceProvider.CreateScope();
@@ -25,5 +30,9 @@ public class PostgresMetadataStore(IServiceProvider serviceProvider) : IMetadata
         
         await context.UploadedFiles.AddAsync(file);
         await context.SaveChangesAsync();
+        Logger.LogInformation("Stored metadata for {bucket}/{key} with a total of {chunks} chunks",
+            file.Bucket,
+            file.Key,
+            file.Chunks.Count);
     }
 }

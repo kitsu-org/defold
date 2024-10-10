@@ -8,22 +8,17 @@ using S3ServerLibrary.S3Objects;
 
 namespace Defold;
 
-public class DefoldS3Server
+public class DefoldS3Server(
+    ILogger<DefoldS3Server> logger,
+    IMetadataStore metadataStore,
+    IOptions<DeduplicationOptions> dedupOptions,
+    IFileStore fileStore)
 {
-    private ILogger Logger { get; }
-    private IMetadataStore MetadataStore { get; }
-    private IOptions<DeduplicationOptions> DedupOptions { get; }
+    private ILogger Logger { get; } = logger;
+    private IMetadataStore MetadataStore { get; } = metadataStore;
+    private IFileStore FileStore { get; } = fileStore;
+    private IOptions<DeduplicationOptions> DedupOptions { get; } = dedupOptions;
 
-    public DefoldS3Server(
-        ILogger<DefoldS3Server> logger, 
-        IMetadataStore metadataStore,
-        IOptions<DeduplicationOptions> dedupOptions)
-    {
-        Logger = logger;
-        MetadataStore = metadataStore;
-        DedupOptions = dedupOptions;
-    }
-    
     public void SetupCallbacks(S3Server server)
     {
         server.Bucket.Read += BucketRead;
@@ -79,32 +74,49 @@ public class DefoldS3Server
             // stream, either, before reading)
             var bytes = new byte[expectedSize];
             await stream.ReadExactlyAsync(bytes, 0, expectedSize);
+
+            Logger.ChunkReadFromRequest(chunkIndex);
             
             // spin up a bunch of threads (limited by the .NET thread pool) to calculate
-            // the hash for each file chunk and turn it into a FileChunk object we attach to the
-            // UploadedFile we created above
-            tasks.Add(Task.Run<FileChunk>(() =>
+            // the hash (within the FileStore) for each file chunk and turn it into a
+            // FileChunk object we attach to the UploadedFile we created above
+            tasks.Add(Task.Run<FileChunk>(async () =>
             {
-                var hash = SHA256.HashData(bytes);
-                var sb = new StringBuilder();
-                foreach (var b in hash)
-                {
-                    sb.Append(b.ToString("x2"));
-                }
-
-                var hashString = sb.ToString();
+                Logger.ChunkProcessingThreadStarted(chunkIndex);
+                var hash = await FileStore.StoreChunk(bytes);
                 return new FileChunk()
                 {
                     Bucket = arg.Request.Bucket,
                     Key = arg.Request.Key,
                     ChunkIndex = chunkIndex,
-                    ChunkHash = hashString
+                    ChunkHash = hash
                 };
             }));
         }
+        Logger.WaitingForChunkThreads();
         await Task.WhenAll(tasks);
+        Logger.ChunkThreadsFinished();
         var chunks = tasks.Select(t => t.Result);
         foreach (var chunk in chunks) uploadedFile.Chunks.Add(chunk);
         await MetadataStore.AddFile(uploadedFile);
+        Logger.FileStored(arg.Request.Key);
     }
+}
+
+public static partial class DefoldS3ServerLoggerMessages
+{
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Chunk {chunkIndex} read from request")]
+    public static partial void ChunkReadFromRequest(this ILogger logger, int chunkIndex);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Thread for chunk {chunkIndex} started")]
+    public static partial void ChunkProcessingThreadStarted(this ILogger logger, int chunkIndex);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Waiting on all chunk threads to finish")]
+    public static partial void WaitingForChunkThreads(this ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "All chunk threads finished")]
+    public static partial void ChunkThreadsFinished(this ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "File {key} uploaded and all metadata stored")]
+    public static partial void FileStored(this ILogger logger, string key);
 }
