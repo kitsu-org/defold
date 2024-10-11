@@ -70,15 +70,16 @@ public class S3FileStore(IOptions<S3ClientOptions> options, ILogger<S3FileStore>
             sb.Append(b.ToString("x2"));
         }
         var hashString = sb.ToString();
-
-        if (await ObjectExists(hashString))
+        var key = $"chunks/{hashString}";
+        
+        if (await ObjectExists(key))
         {
             Logger.LogDebug("Object {hash} already exists in S3 bucket, not uploading", hashString);
             return hashString;
         }
         
-        Logger.LogDebug("Uploading object {hash} to S3 bucket", hashString);
-        await PutObject(hashString, chunk);
+        Logger.LogDebug("Uploading object {hash} to S3 bucket", key);
+        await PutObject(key, chunk);
         return hashString;
     }
 }
