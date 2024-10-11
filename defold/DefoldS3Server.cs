@@ -27,9 +27,11 @@ public class DefoldS3Server(
 
     private async Task<ListBucketResult> BucketRead(S3Context ctx)
     {
+        var contents = await MetadataStore.GetFiles(ctx.Request.Bucket, ctx.Request.Prefix);
+        
         var result = new ListBucketResult(
             ctx.Request.Bucket,
-            new List<ObjectMetadata>(),
+            contents.Select(uf => uf.ToS3Object()).ToList(),
             0,
             ctx.Request.MaxKeys,
             ctx.Request.Prefix,

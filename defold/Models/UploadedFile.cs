@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using S3ServerLibrary.S3Objects;
 
 namespace Defold.Models;
 
@@ -12,4 +13,17 @@ public class UploadedFile
 
     public ICollection<FileChunk> Chunks { get; } = new List<FileChunk>();
 
+    public ObjectMetadata ToS3Object()
+    {
+        return new ObjectMetadata()
+        {
+            ContentType = ContentType,
+            LastModified = UploadedAt,
+            Owner = null,
+            Key = Key,
+            Size = 0,
+            StorageClass = StorageClassEnum.STANDARD,
+            ETag = ""
+        };
+    }
 }

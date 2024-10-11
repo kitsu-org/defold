@@ -35,4 +35,21 @@ public class PostgresMetadataStore(
             file.Key,
             file.Chunks.Count);
     }
+
+    /// <inheritdoc />
+    public async Task<List<UploadedFile>> GetFiles(string bucket, string? prefix = null)
+    {
+        using var scope = ServiceProvider.CreateScope();
+        await using var context = scope.ServiceProvider.GetRequiredService<DefoldDbContext>();
+        
+        
+        var query = context.UploadedFiles
+            .Where(uf => uf.Bucket == bucket);
+        if (prefix != null)
+        {
+            query = query.Where(uf => uf.Key.StartsWith(prefix));
+        }
+
+        return await query.ToListAsync();
+    }
 }
